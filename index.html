@@ -227,7 +227,11 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
       <option value="all" selected>All Owners</option><option value="zorad">Zorad</option><option value="emi">Emi</option><option value="kaua">Kaua (Former)</option><option value="celeste">Celeste (Former)</option>
     </select>
     <select class="ctrl-select" id="f-status" onchange="render()">
-      <option value="all">All Statuses</option><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option><option value="closed">Closed</option><option value="lost">Lost</option>
+      <option value="all">All Statuses</option>
+      <option value="Pitched No Close">Pitched No Close</option>
+      <option value="Won">Won</option>
+      <option value="Deposit">Deposit</option>
+      <option value="No Pitch (DQ)">No Pitch (DQ)</option>
     </select>
     <select class="ctrl-select" id="f-due" onchange="render()">
       <option value="all">All Dates</option><option value="overdue">Overdue</option><option value="today">Due Today</option><option value="week">This Week</option>
@@ -459,6 +463,11 @@ async function syncAirtable() {
   msg.textContent = 'Connecting to Airtable...';
 
   try {
+    // Clear existing Airtable records so re-sync routes correctly
+    ['pitches','upsells','deposits','lost','referrals'].forEach(function(t){
+      db[t] = (db[t]||[]).filter(function(r){ return !r.fromAirtable; });
+    });
+
     let atRecords = [];
     let offset = null;
     let page = 1;
@@ -556,7 +565,7 @@ function render() {
   }).filter(function(r) {
     if(search && !r.name.toLowerCase().includes(search) && !(r.phone||'').includes(search) && !(r.email||'').toLowerCase().includes(search)) return false;
     if(fOwner!=='all' && (r.owner||'').toLowerCase()!==fOwner) return false;
-    if(fStatus!=='all' && r.status!==fStatus) return false;
+    if(fStatus!=='all' && (r.status||'')!==fStatus) return false;
     if(fDue==='overdue' && !(r.followup&&r.followup<t)) return false;
     if(fDue==='today' && r.followup!==t) return false;
     if(fDue==='week' && !(r.followup>=t&&r.followup<=wk)) return false;
@@ -619,14 +628,14 @@ function render() {
   document.getElementById('s-overdue').textContent = all.filter(function(r){return r.followup&&r.followup<t&&r.status!=='closed'&&r.status!=='lost';}).length;
   document.getElementById('s-today').textContent = all.filter(function(r){return r.followup===t&&r.status!=='closed'&&r.status!=='lost';}).length;
   document.getElementById('s-hot').textContent = (db.pitches||[]).filter(function(r){return (r.status||'').toLowerCase().includes('hot');}).length;
-  document.getElementById('s-closed').textContent = (db.upsells||[]).length;
+  document.getElementById('s-closed').textContent = (db.upsells||[]).length + (db.deposits||[]).length;
 
   const open = all.filter(function(r){return r.status!=='closed'&&r.status!=='lost';});
-  const won  = all.filter(function(r){return r.status==='closed';});
-  const hot  = all.filter(function(r){return r.status==='hot';});
-  const lost = all.filter(function(r){return r.status==='lost';});
+  const won  = db.upsells||[];
+  const hot  = (db.pitches||[]).filter(function(r){return (r.priority||'')==='high';});
+  const lost = db.lost||[];
   document.getElementById('r-pipeline').textContent = fmtBig(open.reduce(function(s,r){return s+parseMoney(r.value);},0));
-  document.getElementById('r-won').textContent      = fmtBig(won.reduce(function(s,r){return s+parseMoney(r.value);},0));
+  document.getElementById('r-won').textContent = fmtBig((db.upsells||[]).reduce(function(s,r){return s+parseMoney(r.value);},0));
   document.getElementById('r-hot').textContent      = fmtBig(hot.reduce(function(s,r){return s+parseMoney(r.value);},0));
   document.getElementById('r-upsell').textContent   = fmtBig((db.upsells||[]).reduce(function(s,r){return s+parseMoney(r.value);},0));
   document.getElementById('r-referral').textContent = fmtBig((db.deposits||[]).reduce(function(s,r){return s+parseMoney(r.value);},0));
