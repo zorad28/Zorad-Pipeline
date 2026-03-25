@@ -93,6 +93,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
 .owner-tag{display:inline-block;padding:.13rem .48rem;border-radius:20px;font-family:var(--mono);font-size:.58rem;font-weight:500;white-space:nowrap;}
 .o-zorad{background:rgba(0,212,255,.08);color:var(--cyan);border:1px solid rgba(0,212,255,.18);}
 .o-kaua{background:rgba(255,176,32,.08);color:var(--amber);border:1px solid rgba(255,176,32,.18);}
+.o-emi{background:rgba(0,229,160,.08);color:var(--green);border:1px solid rgba(0,229,160,.18);}
 .o-celeste{background:rgba(168,85,247,.08);color:#c896ff;border:1px solid rgba(168,85,247,.18);}
 .o-other{background:rgba(90,114,153,.08);color:var(--text-dim);border:1px solid var(--border2);}
 .fu-overdue{color:var(--red);font-weight:600;font-family:var(--mono);font-size:.7rem;}
@@ -220,7 +221,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
   <div class="controls">
     <div class="search-wrap"><span class="si">⌕</span><input type="text" id="search" placeholder="Search name, phone, email..." oninput="render()"></div>
     <select class="ctrl-select" id="f-owner" onchange="render()">
-      <option value="all" selected>All Owners</option><option value="zorad">Zorad</option><option value="kaua">Kaua</option><option value="celeste">Celeste</option>
+      <option value="all" selected>All Owners</option><option value="zorad">Zorad</option><option value="emi">Emi</option><option value="kaua">Kaua (Former)</option><option value="celeste">Celeste (Former)</option>
     </select>
     <select class="ctrl-select" id="f-status" onchange="render()">
       <option value="all">All Statuses</option><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option><option value="closed">Closed</option><option value="lost">Lost</option>
@@ -290,7 +291,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
     <input type="hidden" id="m-id">
     <div class="form-grid">
       <div class="field"><label>Full Name *</label><input type="text" id="m-name" placeholder="John Smith"></div>
-      <div class="field"><label>Owner</label><select id="m-owner"><option value="zorad">Zorad</option><option value="kaua">Kaua</option><option value="celeste">Celeste</option></select></div>
+      <div class="field"><label>Owner</label><select id="m-owner"><option value="zorad">Zorad</option><option value="emi">Emi</option><option value="kaua">Kaua (Former)</option><option value="celeste">Celeste (Former)</option></select></div>
       <div class="field"><label>Phone</label><input type="text" id="m-phone" placeholder="+1 555 000 0000"></div>
       <div class="field"><label>Email</label><input type="text" id="m-email" placeholder="john@example.com"></div>
       <div class="field"><label>Pitch Date</label><input type="date" id="m-pitched"></div>
@@ -347,11 +348,11 @@ function isStale(r) {
 
 function touchCls(n) { if(n===0)return'tc-0'; if(n<=2)return'tc-low'; if(n<=4)return'tc-med'; return'tc-high'; }
 function ownerCls(o) {
-  const m = {zorad:'o-zorad',kaua:'o-kaua',celeste:'o-celeste'};
+  const m = {zorad:'o-zorad',emi:'o-emi',kaua:'o-kaua',celeste:'o-celeste'};
   return m[(o||'').toLowerCase()] || 'o-other';
 }
 function ownerLabel(o) {
-  const m = {zorad:'Zorad',kaua:'Kaua',celeste:'Celeste'};
+  const m = {zorad:'Zorad',emi:'Emi',kaua:'Kaua',celeste:'Celeste'};
   return m[(o||'').toLowerCase()] || o;
 }
 function statusCls(s) { return {hot:'b-hot',warm:'b-warm',cold:'b-cold',closed:'b-closed',lost:'b-lost',pending:'b-pending'}[s]||'b-pending'; }
@@ -366,13 +367,15 @@ function switchTab(tab) { currentTab=tab; document.querySelectorAll('.tab').forE
 function mapOutcome(callOutcome) {
   if(!callOutcome) return 'warm';
   const o = callOutcome.toLowerCase();
-  if(o.includes('won')) return 'closed';
-  if(o.includes('pitched no close')) return 'warm';
-  if(o.includes('very hot')) return 'hot';
-  if(o.includes('warm')) return 'warm';
-  if(o.includes('no show')) return 'cold';
-  if(o.includes('cancelled')) return 'cold';
-  if(o.includes('rescheduled')) return 'pending';
+  if(o.includes('won'))              return 'closed';
+  if(o.includes('no pitch (dq)') || o.includes('dq')) return 'lost';
+  if(o.includes('deposit'))         return 'warm';
+  if(o.includes('pitched no close'))return 'warm';
+  if(o.includes('very hot'))        return 'hot';
+  if(o.includes('warm'))            return 'warm';
+  if(o.includes('no show'))         return 'cold';
+  if(o.includes('cancelled'))       return 'cold';
+  if(o.includes('rescheduled'))     return 'pending';
   return 'warm';
 }
 
@@ -385,12 +388,12 @@ function mapPriority(warmth, objType) {
 
 function mapOwner(closerName) {
   if(!closerName) return 'zorad';
-  // Handle array (Airtable linked records return arrays)
   const name = Array.isArray(closerName) ? closerName[0] : closerName;
   if(!name) return 'zorad';
   const n = String(name).toLowerCase();
-  if(n.includes('zorad')) return 'zorad';
-  if(n.includes('kaua')) return 'kaua';
+  if(n.includes('zorad'))   return 'zorad';
+  if(n.includes('emi'))     return 'emi';
+  if(n.includes('kaua'))    return 'kaua';
   if(n.includes('celeste')) return 'celeste';
   return String(name);
 }
@@ -451,7 +454,7 @@ async function syncAirtable() {
     let page = 1;
 
     // Only pull Pitched No Close records
-    const filterFormula = encodeURIComponent("OR({Call Outcome}='Pitched No Close',{Upsell/Downsell}='Upsell')");
+    const filterFormula = encodeURIComponent("OR({Call Outcome}='Pitched No Close',{Call Outcome}='Won',{Call Outcome}='No Pitch (DQ)',{Call Outcome}='Deposit',{Upsell/Downsell}='Upsell')");
 
     do {
       msg.textContent = 'Loading page ' + page + '...';
