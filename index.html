@@ -501,25 +501,66 @@ async function syncAirtable() {
     let imported = 0;
     let updated = 0;
 
-    atRecords.forEach(function(rec) {
-      const mapped = airtableToRecord(rec);
+    // First pass: map all records
+    const mappedRecords = atRecords.map(function(rec){ return airtableToRecord(rec); });
+
+    // Dedup by email+phone: if same lead appears multiple times, keep most recent
+    const leadMap = {};
+    mappedRecords.forEach(function(r) {
+      const key = (r.email||'').toLowerCase().trim() || (r.phone||'').trim();
+      if(!key) { 
+        // No email or phone - use name as fallback
+        const nameKey = (r.name||'').toLowerCase().trim();
+        if(!nameKey) return;
+        if(!leadMap[nameKey]) { leadMap[nameKey] = r; return; }
+        // Keep the one with the priority outcome: Won > Deposit > Pitched No Close > DQ
+        const priority = {'Won':4,'Deposit':3,'Pitched No Close':2,'No Pitch (DQ)':1};
+        const existing = leadMap[nameKey];
+        const existingP = priority[existing.status]||0;
+        const newP = priority[r.status]||0;
+        if(newP > existingP) { leadMap[nameKey] = r; }
+        else if(newP === existingP && (r.pitched||'') > (existing.pitched||'')) { leadMap[nameKey] = r; }
+        return;
+      }
+      if(!leadMap[key]) { leadMap[key] = r; return; }
+      const priority = {'Won':4,'Deposit':3,'Pitched No Close':2,'No Pitch (DQ)':1};
+      const existing = leadMap[key];
+      const existingP = priority[existing.status]||0;
+      const newP = priority[r.status]||0;
+      if(newP > existingP) { leadMap[key] = r; }
+      else if(newP === existingP && (r.pitched||'') > (existing.pitched||'')) { leadMap[key] = r; }
+    });
+
+    const dedupedRecords = Object.values(leadMap);
+    msg.textContent = 'Deduped to ' + dedupedRecords.length + ' unique leads (from ' + mappedRecords.length + ' records)...';
+
+    dedupedRecords.forEach(function(mapped) {
       const tab = mapped.tab;
       if(!db[tab]) db[tab] = [];
-      // Remove from all other tabs first to avoid dupes across tabs
+
+      // Check if already exists by airtableId or email/phone match
+      const key = (mapped.email||'').toLowerCase().trim() || (mapped.phone||'').trim() || (mapped.name||'').toLowerCase().trim();
+      let existingIdx = -1;
+      let existingTab = null;
       ['pitches','upsells','deposits','lost','referrals'].forEach(function(t){
-        if(t!==tab) db[t]=(db[t]||[]).filter(function(x){return x.airtableId!==rec.id;});
+        const i = (db[t]||[]).findIndex(function(x){
+          if(x.airtableId && mapped.airtableId && x.airtableId===mapped.airtableId) return true;
+          const xKey = (x.email||'').toLowerCase().trim() || (x.phone||'').trim();
+          return key && xKey && xKey===key;
+        });
+        if(i>-1 && existingIdx===-1) { existingIdx=i; existingTab=t; }
       });
 
-      // Check if already exists by airtableId
-      const existingIdx = (db[tab]||[]).findIndex(r=>r.airtableId===rec.id);
-      if(existingIdx > -1) {
-        // Update but preserve logs, pinned, followup
-        const existing = db[tab][existingIdx];
-        mapped.logs = existing.logs || [];
-        mapped.pinned = existing.pinned || false;
-        mapped.followup = existing.followup || '';
-        mapped.reason = existing.reason || '';
-        db[tab][existingIdx] = mapped;
+      if(existingIdx > -1 && existingTab) {
+        const existing = db[existingTab][existingIdx];
+        mapped.logs    = existing.logs    || [];
+        mapped.pinned  = existing.pinned  || false;
+        mapped.followup= existing.followup|| '';
+        mapped.reason  = existing.reason  || '';
+        // Remove from old tab
+        db[existingTab].splice(existingIdx, 1);
+        // Add to correct tab
+        db[tab].unshift(mapped);
         updated++;
       } else {
         db[tab].unshift(mapped);
