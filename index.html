@@ -89,6 +89,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
 .b-cold{background:rgba(45,125,246,.1);color:#6ea8f7;border:1px solid rgba(45,125,246,.2);}
 .b-closed{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.2);}
 .b-lost{background:rgba(255,71,87,.06);color:#884050;border:1px solid rgba(255,71,87,.12);}
+.b-deposit{background:rgba(168,85,247,.1);color:#c896ff;border:1px solid rgba(168,85,247,.2);}
 .b-pending{background:rgba(90,114,153,.1);color:var(--text-dim);border:1px solid var(--border2);}
 .owner-tag{display:inline-block;padding:.13rem .48rem;border-radius:20px;font-family:var(--mono);font-size:.58rem;font-weight:500;white-space:nowrap;}
 .o-zorad{background:rgba(0,212,255,.08);color:var(--cyan);border:1px solid rgba(0,212,255,.18);}
@@ -197,7 +198,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
     <div class="hstat"><div class="hstat-val" id="s-overdue" style="color:var(--red)">0</div><div class="hstat-label">Overdue</div></div>
     <div class="hstat"><div class="hstat-val" id="s-today" style="color:var(--amber)">0</div><div class="hstat-label">Due Today</div></div>
     <div class="hstat"><div class="hstat-val" id="s-hot" style="color:#ff6b7a">0</div><div class="hstat-label">Hot</div></div>
-    <div class="hstat"><div class="hstat-val" id="s-closed" style="color:var(--green)">0</div><div class="hstat-label">Closed</div></div>
+    <div class="hstat" style="border-right:none"><div class="hstat-val" id="s-closed" style="color:var(--green)">0</div><div class="hstat-label">Won</div></div>
     <button class="sync-btn" id="sync-btn" onclick="syncAirtable()">⟳ Sync Airtable</button><button class="settings-btn" onclick="openSettings()">⚙ Settings</button>
   </div>
 </header>
@@ -205,13 +206,15 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
   <div class="rev-card rc-cyan"><div class="rev-val" id="r-pipeline">$0</div><div class="rev-label">Total Pipeline</div><div class="rev-sub">All open deals</div></div>
   <div class="rev-card rc-green"><div class="rev-val" id="r-won">$0</div><div class="rev-label">Revenue Won</div><div class="rev-sub">Closed deals</div></div>
   <div class="rev-card rc-amber"><div class="rev-val" id="r-hot">$0</div><div class="rev-label">Hot Pipeline</div><div class="rev-sub">Hot prospects only</div></div>
-  <div class="rev-card rc-blue"><div class="rev-val" id="r-upsell">$0</div><div class="rev-label">Upsell Pipeline</div><div class="rev-sub">Existing client value</div></div>
-  <div class="rev-card rc-purple"><div class="rev-val" id="r-referral">$0</div><div class="rev-label">Referral Pipeline</div><div class="rev-sub">Referred prospects</div></div>
+  <div class="rev-card rc-blue"><div class="rev-val" id="r-upsell">$0</div><div class="rev-label">Closed Pipeline</div><div class="rev-sub">Won deals value</div></div>
+  <div class="rev-card rc-purple"><div class="rev-val" id="r-referral">$0</div><div class="rev-label">Deposit Pipeline</div><div class="rev-sub">Deposit deals value</div></div>
   <div class="rev-card rc-red"><div class="rev-val" id="r-lost">$0</div><div class="rev-label">Lost Revenue</div><div class="rev-sub">Deals marked lost</div></div>
 </div>
 <div class="tab-bar">
-  <div class="tab active" data-tab="pitches" onclick="switchTab('pitches')">📞 Pitch No-Closes <span class="tab-count" id="tc-pitches">0</span></div>
-  <div class="tab" data-tab="upsells" onclick="switchTab('upsells')">⬆ Upsells <span class="tab-count" id="tc-upsells">0</span></div>
+  <div class="tab active" data-tab="pitches"  onclick="switchTab('pitches')">📞 Pitch No-Closes <span class="tab-count" id="tc-pitches">0</span></div>
+  <div class="tab" data-tab="upsells"   onclick="switchTab('upsells')">🏆 Closed / Won <span class="tab-count" id="tc-upsells">0</span></div>
+  <div class="tab" data-tab="deposits"  onclick="switchTab('deposits')">💰 Deposits <span class="tab-count" id="tc-deposits">0</span></div>
+  <div class="tab" data-tab="lost"      onclick="switchTab('lost')">❌ DQ / Lost <span class="tab-count" id="tc-lost">0</span></div>
   <div class="tab" data-tab="referrals" onclick="switchTab('referrals')">🔗 Referrals <span class="tab-count" id="tc-referrals">0</span></div>
 </div>
 <div class="main">
@@ -238,12 +241,18 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
     <select class="ctrl-select" id="f-source" onchange="render()">
       <option value="all">All Sources</option><option value="airtable">From Airtable</option><option value="manual">Manual</option>
     </select>
+    <select class="ctrl-select" id="f-sort" onchange="render()">
+      <option value="newest">Newest First</option>
+      <option value="oldest">Oldest First</option>
+      <option value="value-high">Highest Value</option>
+      <option value="value-low">Lowest Value</option>
+    </select>
     <button class="btn-add" onclick="openModal()">+ Add Record</button>
   </div>
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th></th><th>Name</th><th>Contact</th><th>Owner</th><th>Pitched</th>
+        <th></th><th>#</th><th>Name</th><th>Contact</th><th>Owner</th><th>Pitched</th>
         <th>Status</th><th>Deal Value</th><th>Touches</th><th>Last Outcome</th>
         <th>Next Follow-up</th><th>Objection</th><th>Last Note</th><th></th>
       </tr></thead>
@@ -299,7 +308,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
       <div class="field"><label>Status</label><select id="m-status"><option value="warm">Warm</option><option value="hot">Hot</option><option value="cold">Cold</option><option value="closed">Closed</option><option value="lost">Lost</option><option value="pending">Pending</option></select></div>
       <div class="field"><label>Priority</label><select id="m-priority"><option value="med">Medium</option><option value="high">High</option><option value="low">Low</option></select></div>
       <div class="field"><label>Deal Value ($)</label><input type="text" id="m-value" placeholder="e.g. 3500"></div>
-      <div class="field"><label>Tab</label><select id="m-tab"><option value="pitches">Pitch No-Close</option><option value="upsells">Upsell</option><option value="referrals">Referral</option></select></div>
+      <div class="field"><label>Tab</label><select id="m-tab"><option value="pitches">Pitch No-Close</option><option value="upsells">Closed / Won</option><option value="deposits">Deposit</option><option value="lost">DQ / Lost</option><option value="referrals">Referral</option></select></div>
       <div class="field form-full"><label>Main Objection</label><input type="text" id="m-objection" placeholder="e.g. Price too high, needs to think about it..."></div>
       <div class="field form-full"><label>Won / Lost Reason</label><input type="text" id="m-reason" placeholder="e.g. Closed on urgency / Lost — went with competitor"></div>
       <div class="field form-full"><label>Initial Notes</label><textarea id="m-notes" placeholder="Post-call context, first impressions..."></textarea></div>
@@ -318,7 +327,7 @@ const AT_TABLE = localStorage.getItem('at_table')||'';
 
 // ── STORE ──
 const STORE = 'et_pipeline_v4';
-let db = JSON.parse(localStorage.getItem(STORE) || '{"pitches":[],"upsells":[],"referrals":[]}');
+let db = JSON.parse(localStorage.getItem(STORE) || '{"pitches":[],"upsells":[],"deposits":[],"lost":[],"referrals":[]}');
 let currentTab = 'pitches';
 let panelId = null;
 function persist() { localStorage.setItem(STORE, JSON.stringify(db)); }
@@ -355,28 +364,26 @@ function ownerLabel(o) {
   const m = {zorad:'Zorad',emi:'Emi',kaua:'Kaua',celeste:'Celeste'};
   return m[(o||'').toLowerCase()] || o;
 }
-function statusCls(s) { return {hot:'b-hot',warm:'b-warm',cold:'b-cold',closed:'b-closed',lost:'b-lost',pending:'b-pending'}[s]||'b-pending'; }
+function statusCls(s) {
+  const m = {
+    'Won':'b-closed','Deposit':'b-deposit','Pitched No Close':'b-warm',
+    'No Pitch (DQ)':'b-lost','hot':'b-hot','warm':'b-warm','cold':'b-cold',
+    'closed':'b-closed','lost':'b-lost','pending':'b-pending'
+  };
+  return m[s]||'b-pending';
+}
 function outcomeCls(o) { return {answered:'oc-answered',voicemail:'oc-voicemail','no-answer':'oc-no-answer',callback:'oc-callback'}[o]||'oc-none'; }
 function outcomeLabel(o) { return {answered:'✅ Answered',voicemail:'📩 Voicemail','no-answer':'📵 No Answer',callback:'🔁 Callback'}[o]||'—'; }
-function allRecords() { return [...(db.pitches||[]),...(db.upsells||[]),...(db.referrals||[])]; }
+function allRecords() { return [...(db.pitches||[]),...(db.upsells||[]),...(db.deposits||[]),...(db.lost||[]),...(db.referrals||[])]; }
 function findRecord(id) { return allRecords().find(r=>r.id===id); }
 function switchTab(tab) { currentTab=tab; document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab)); render(); }
 </script>
 <script>
 // ── AIRTABLE SYNC ──
 function mapOutcome(callOutcome) {
-  if(!callOutcome) return 'warm';
-  const o = callOutcome.toLowerCase();
-  if(o.includes('won'))              return 'closed';
-  if(o.includes('no pitch (dq)') || o.includes('dq')) return 'lost';
-  if(o.includes('deposit'))         return 'warm';
-  if(o.includes('pitched no close'))return 'warm';
-  if(o.includes('very hot'))        return 'hot';
-  if(o.includes('warm'))            return 'warm';
-  if(o.includes('no show'))         return 'cold';
-  if(o.includes('cancelled'))       return 'cold';
-  if(o.includes('rescheduled'))     return 'pending';
-  return 'warm';
+  // Keep exact Airtable label as status
+  if(!callOutcome) return 'Pitched No Close';
+  return callOutcome;
 }
 
 function mapPriority(warmth, objType) {
@@ -399,7 +406,10 @@ function mapOwner(closerName) {
 }
 
 function mapTab(upsell, callOutcome) {
-  if(upsell && upsell.toLowerCase().includes('upsell')) return 'upsells';
+  const o = (callOutcome||'').toLowerCase();
+  if(o.includes('won')) return 'upsells';
+  if(o.includes('deposit')) return 'deposits';
+  if(o.includes('no pitch (dq)') || o.includes('dq')) return 'lost';
   return 'pitches';
 }
 
@@ -454,7 +464,7 @@ async function syncAirtable() {
     let page = 1;
 
     // Only pull Pitched No Close records
-    const filterFormula = encodeURIComponent("OR({Call Outcome}='Pitched No Close',{Call Outcome}='Won',{Call Outcome}='No Pitch (DQ)',{Call Outcome}='Deposit',{Upsell/Downsell}='Upsell')");
+    const filterFormula = encodeURIComponent("OR({Call Outcome}='Pitched No Close',{Call Outcome}='Won',{Call Outcome}='No Pitch (DQ)',{Call Outcome}='Deposit')");
 
     do {
       msg.textContent = 'Loading page ' + page + '...';
@@ -486,6 +496,10 @@ async function syncAirtable() {
       const mapped = airtableToRecord(rec);
       const tab = mapped.tab;
       if(!db[tab]) db[tab] = [];
+      // Remove from all other tabs first to avoid dupes across tabs
+      ['pitches','upsells','deposits','lost','referrals'].forEach(function(t){
+        if(t!==tab) db[t]=(db[t]||[]).filter(function(x){return x.airtableId!==rec.id;});
+      });
 
       // Check if already exists by airtableId
       const existingIdx = (db[tab]||[]).findIndex(r=>r.airtableId===rec.id);
@@ -530,9 +544,14 @@ function render() {
   const fSource = document.getElementById('f-source').value;
   const t = todayStr(), wk = weekEnd();
 
+  const fSort = document.getElementById('f-sort').value;
   let list = (db[currentTab]||[]).slice().sort(function(a,b) {
     if(a.pinned&&!b.pinned) return -1;
     if(!a.pinned&&b.pinned) return 1;
+    if(fSort==='newest') return (b.pitched||'').localeCompare(a.pitched||'');
+    if(fSort==='oldest') return (a.pitched||'').localeCompare(b.pitched||'');
+    if(fSort==='value-high') return parseMoney(b.value)-parseMoney(a.value);
+    if(fSort==='value-low')  return parseMoney(a.value)-parseMoney(b.value);
     return 0;
   }).filter(function(r) {
     if(search && !r.name.toLowerCase().includes(search) && !(r.phone||'').includes(search) && !(r.email||'').toLowerCase().includes(search)) return false;
@@ -590,16 +609,17 @@ function render() {
   });
   document.getElementById('empty').style.display = list.length ? 'none' : 'block';
 
-  ['pitches','upsells','referrals'].forEach(function(tab) {
-    document.getElementById('tc-'+tab).textContent = (db[tab]||[]).length;
+  ['pitches','upsells','deposits','lost','referrals'].forEach(function(tab) {
+    const el = document.getElementById('tc-'+tab);
+    if(el) el.textContent = (db[tab]||[]).length;
   });
 
   const all = allRecords();
   document.getElementById('s-total').textContent = all.length;
   document.getElementById('s-overdue').textContent = all.filter(function(r){return r.followup&&r.followup<t&&r.status!=='closed'&&r.status!=='lost';}).length;
   document.getElementById('s-today').textContent = all.filter(function(r){return r.followup===t&&r.status!=='closed'&&r.status!=='lost';}).length;
-  document.getElementById('s-hot').textContent = all.filter(function(r){return r.status==='hot';}).length;
-  document.getElementById('s-closed').textContent = all.filter(function(r){return r.status==='closed';}).length;
+  document.getElementById('s-hot').textContent = (db.pitches||[]).filter(function(r){return (r.status||'').toLowerCase().includes('hot');}).length;
+  document.getElementById('s-closed').textContent = (db.upsells||[]).length;
 
   const open = all.filter(function(r){return r.status!=='closed'&&r.status!=='lost';});
   const won  = all.filter(function(r){return r.status==='closed';});
@@ -608,8 +628,8 @@ function render() {
   document.getElementById('r-pipeline').textContent = fmtBig(open.reduce(function(s,r){return s+parseMoney(r.value);},0));
   document.getElementById('r-won').textContent      = fmtBig(won.reduce(function(s,r){return s+parseMoney(r.value);},0));
   document.getElementById('r-hot').textContent      = fmtBig(hot.reduce(function(s,r){return s+parseMoney(r.value);},0));
-  document.getElementById('r-upsell').textContent   = fmtBig((db.upsells||[]).filter(function(r){return r.status!=='lost';}).reduce(function(s,r){return s+parseMoney(r.value);},0));
-  document.getElementById('r-referral').textContent = fmtBig((db.referrals||[]).filter(function(r){return r.status!=='lost';}).reduce(function(s,r){return s+parseMoney(r.value);},0));
+  document.getElementById('r-upsell').textContent   = fmtBig((db.upsells||[]).reduce(function(s,r){return s+parseMoney(r.value);},0));
+  document.getElementById('r-referral').textContent = fmtBig((db.deposits||[]).reduce(function(s,r){return s+parseMoney(r.value);},0));
   document.getElementById('r-lost').textContent     = fmtBig(lost.reduce(function(s,r){return s+parseMoney(r.value);},0));
 
   const urgent = all.filter(function(r){return r.followup&&r.followup<=t&&r.status!=='closed'&&r.status!=='lost';}).length;
@@ -623,7 +643,7 @@ function render() {
 <script>
 // ── PIN ──
 function togglePin(id) {
-  ['pitches','upsells','referrals'].forEach(function(tab) {
+  ['pitches','upsells','deposits','lost','referrals'].forEach(function(tab) {
     const r = (db[tab]||[]).find(function(x){return x.id===id;});
     if(r) r.pinned = !r.pinned;
   });
@@ -672,7 +692,7 @@ function logCall() {
   if(!panelId) return;
   const note = document.getElementById('sp-note-input').value.trim();
   const outcome = document.getElementById('sp-outcome').value;
-  ['pitches','upsells','referrals'].forEach(function(tab) {
+  ['pitches','upsells','deposits','lost','referrals'].forEach(function(tab) {
     const r = (db[tab]||[]).find(function(x){return x.id===panelId;});
     if(r) { if(!r.logs) r.logs=[]; r.logs.push({ts:new Date().toISOString(),outcome:outcome,note:note}); }
   });
@@ -685,7 +705,7 @@ function logCall() {
 
 function deleteLog(id, idx) {
   if(!confirm('Delete this log?')) return;
-  ['pitches','upsells','referrals'].forEach(function(tab) {
+  ['pitches','upsells','deposits','lost','referrals'].forEach(function(tab) {
     const r = (db[tab]||[]).find(function(x){return x.id===id;});
     if(r&&r.logs) r.logs.splice(idx,1);
   });
@@ -755,7 +775,7 @@ function saveRecord() {
     notes:     document.getElementById('m-notes').value.trim()
   };
   if(id) {
-    ['pitches','upsells','referrals'].forEach(function(t) {
+    ['pitches','upsells','deposits','lost','referrals'].forEach(function(t) {
       const i = (db[t]||[]).findIndex(function(x){return x.id===id;});
       if(i>-1) { const ex=db[t][i]; rec.logs=ex.logs||[]; rec.pinned=ex.pinned||false; rec.fromAirtable=ex.fromAirtable||false; rec.airtableId=ex.airtableId||null; db[t][i]=rec; }
     });
@@ -769,7 +789,7 @@ function saveRecord() {
 
 function deleteRecord(id) {
   if(!confirm('Delete this record?')) return;
-  ['pitches','upsells','referrals'].forEach(function(tab){db[tab]=(db[tab]||[]).filter(function(x){return x.id!==id;});});
+  ['pitches','upsells','deposits','lost','referrals'].forEach(function(tab){db[tab]=(db[tab]||[]).filter(function(x){return x.id!==id;});});
   persist(); render();
 }
 
