@@ -348,7 +348,7 @@ function isStale(r) {
 function touchCls(n) { if(n===0)return'tc-0'; if(n<=2)return'tc-low'; if(n<=4)return'tc-med'; return'tc-high'; }
 function ownerCls(o) {
   const m = {zorad:'o-zorad',kaua:'o-kaua',celeste:'o-celeste'};
-  return m[o.toLowerCase()] || 'o-other';
+  return m[(o||'').toLowerCase()] || 'o-other';
 }
 function ownerLabel(o) {
   const m = {zorad:'Zorad',kaua:'Kaua',celeste:'Celeste'};
@@ -385,11 +385,14 @@ function mapPriority(warmth, objType) {
 
 function mapOwner(closerName) {
   if(!closerName) return 'zorad';
-  const n = closerName.toLowerCase();
+  // Handle array (Airtable linked records return arrays)
+  const name = Array.isArray(closerName) ? closerName[0] : closerName;
+  if(!name) return 'zorad';
+  const n = String(name).toLowerCase();
   if(n.includes('zorad')) return 'zorad';
   if(n.includes('kaua')) return 'kaua';
   if(n.includes('celeste')) return 'celeste';
-  return closerName;
+  return String(name);
 }
 
 function mapTab(upsell, callOutcome) {
@@ -397,31 +400,39 @@ function mapTab(upsell, callOutcome) {
   return 'pitches';
 }
 
+function safeStr(v) {
+  if(!v) return '';
+  if(Array.isArray(v)) return v.map(function(x){return String(x);}).join(', ');
+  return String(v);
+}
 function airtableToRecord(rec) {
-  const f = rec.fields;
-  const callOutcome = f['Call Outcome'] || '';
-  const warmth = f['Non-Close Warmth'] || '';
-  const upsell = f['Upsell/Downsell'] || '';
+  const f = rec.fields || {};
+  const callOutcome = safeStr(f['Call Outcome']);
+  const warmth      = safeStr(f['Non-Close Warmth']);
+  const upsell      = safeStr(f['Upsell/Downsell']);
+  const closerName  = safeStr(f['Closer Name']);
+  const leadName    = safeStr(f['Lead Full Name']);
+  const potVal      = f['Potential Value'];
   return {
     id: 'at_' + rec.id,
     airtableId: rec.id,
     fromAirtable: true,
-    name: f['Lead Full Name'] || f['Closer Name'] || 'Unknown',
-    owner: mapOwner(f['Closer Name']),
-    phone: f['Lead Phone Number'] || '',
-    email: f['Lead Email'] || '',
-    pitched: f['Call Date'] || '',
-    followup: '',
-    status: mapOutcome(callOutcome),
-    priority: mapPriority(warmth, f['Objection Type']),
-    value: f['Potential Value'] ? String(f['Potential Value']) : '',
-    method: 'call',
-    objection: f['Objections'] || '',
-    reason: '',
-    notes: f['Notes'] || '',
-    logs: [],
-    pinned: false,
-    tab: mapTab(upsell, callOutcome)
+    name:      leadName || closerName || 'Unknown',
+    owner:     mapOwner(f['Closer Name']),
+    phone:     safeStr(f['Lead Phone Number']),
+    email:     safeStr(f['Lead Email']),
+    pitched:   safeStr(f['Call Date']),
+    followup:  '',
+    status:    mapOutcome(callOutcome),
+    priority:  mapPriority(warmth, safeStr(f['Objection Type'])),
+    value:     potVal ? String(potVal) : '',
+    method:    'call',
+    objection: safeStr(f['Objections']),
+    reason:    '',
+    notes:     safeStr(f['Notes']),
+    logs:      [],
+    pinned:    false,
+    tab:       mapTab(upsell, callOutcome)
   };
 }
 
@@ -522,7 +533,7 @@ function render() {
     return 0;
   }).filter(function(r) {
     if(search && !r.name.toLowerCase().includes(search) && !(r.phone||'').includes(search) && !(r.email||'').toLowerCase().includes(search)) return false;
-    if(fOwner!=='all' && r.owner.toLowerCase()!==fOwner) return false;
+    if(fOwner!=='all' && (r.owner||'').toLowerCase()!==fOwner) return false;
     if(fStatus!=='all' && r.status!==fStatus) return false;
     if(fDue==='overdue' && !(r.followup&&r.followup<t)) return false;
     if(fDue==='today' && r.followup!==t) return false;
