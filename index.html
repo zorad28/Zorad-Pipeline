@@ -220,7 +220,7 @@ td{padding:.78rem .9rem;font-size:.8rem;vertical-align:middle;}
   <div class="controls">
     <div class="search-wrap"><span class="si">⌕</span><input type="text" id="search" placeholder="Search name, phone, email..." oninput="render()"></div>
     <select class="ctrl-select" id="f-owner" onchange="render()">
-      <option value="all">All Owners</option><option value="zorad">Zorad</option><option value="kaua">Kaua</option><option value="celeste">Celeste</option>
+      <option value="all" selected>All Owners</option><option value="zorad">Zorad</option><option value="kaua">Kaua</option><option value="celeste">Celeste</option>
     </select>
     <select class="ctrl-select" id="f-status" onchange="render()">
       <option value="all">All Statuses</option><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option><option value="closed">Closed</option><option value="lost">Lost</option>
@@ -435,7 +435,7 @@ async function syncAirtable() {
   msg.textContent = 'Connecting to Airtable...';
 
   try {
-    let allRecords = [];
+    let atRecords = [];
     let offset = null;
     let page = 1;
 
@@ -457,20 +457,18 @@ async function syncAirtable() {
       }
 
       const data = await resp.json();
-      allRecords = allRecords.concat(data.records);
+      atRecords = atRecords.concat(data.records);
       offset = data.offset;
       page++;
     } while(offset);
 
-    msg.textContent = 'Processing ' + allRecords.length + ' records...';
+    msg.textContent = 'Processing ' + atRecords.length + ' records...';
 
     // Get existing airtable IDs to avoid dupes
-    const existingAtIds = new Set(allRecords().filter(r=>r.airtableId).map(r=>r.airtableId));
-
     let imported = 0;
     let updated = 0;
 
-    allRecords.forEach(function(rec) {
+    atRecords.forEach(function(rec) {
       const mapped = airtableToRecord(rec);
       const tab = mapped.tab;
       if(!db[tab]) db[tab] = [];
